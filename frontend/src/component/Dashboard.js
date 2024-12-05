@@ -23,7 +23,7 @@ const Dashboard = () => {
         }
 
         // Hardcoded favorite genres
-        const favoriteGenres = ["self development"]; 
+        const favoriteGenres = ["fiction", "science", "history"]; 
 
         // Fetch books for each genre
         const booksByGenre = [];
@@ -59,6 +59,23 @@ const Dashboard = () => {
     setSearchQuery(e.target.value);
   };
 
+  const fetchGoogleBooks = async (query) => {
+    try {
+      const response = await fetch(
+        `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=10&key=AIzaSyBYpWTgMHSJNm0YGf8VuBwmn_ROV1jfpjM`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch books");
+      }
+
+      const data = await response.json();
+      setBooks(data.items || []);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const filteredBooks = books.filter((book) => {
     const { title = "", authors = [] } = book.volumeInfo || {};
     return (
@@ -68,6 +85,11 @@ const Dashboard = () => {
       )
     );
   });
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    fetchGoogleBooks(searchQuery);
+  };
 
   if (loading) return <div style={styles.message}>Loading...</div>;
   if (error) return <div style={styles.message}>Error: {error}</div>;
@@ -82,13 +104,16 @@ const Dashboard = () => {
       <main style={styles.main}>
         <header style={styles.header}>
           <h1>Recommended Books</h1>
-          <input
-            type="text"
-            placeholder="Search books by title or author..."
-            value={searchQuery}
-            onChange={handleSearch}
-            style={styles.searchBar}
-          />
+          <form onSubmit={handleSearchSubmit}>
+            <input
+              type="text"
+              placeholder="Search books by title or author..."
+              value={searchQuery}
+              onChange={handleSearch}
+              style={styles.searchBar}
+            />
+            <button type="submit" style={styles.searchButton}>Search</button>
+          </form>
         </header>
         <div style={styles.grid}>
           {filteredBooks.map((book, index) => {
@@ -144,6 +169,16 @@ const styles = {
     width: "300px",
     border: "1px solid #ccc",
     borderRadius: "5px",
+  },
+  searchButton: {
+    padding: "10px 20px",
+    fontSize: "16px",
+    marginLeft: "10px",
+    backgroundColor: "#4CAF50",
+    color: "white",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer",
   },
   grid: {
     display: "grid",
