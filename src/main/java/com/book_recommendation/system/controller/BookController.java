@@ -22,6 +22,8 @@ public class BookController {
 	
 	private User user;
 	private UserRepository userRepository;
+	
+	@Autowired
 	private CustomUserDetailsService userService;
 	
 	@Autowired
@@ -36,31 +38,56 @@ public class BookController {
     
 	
 	
-	@GetMapping("/fav_genere")
-	public ResponseEntity<Set<String>> getFavoriteGenres(Principal principal)
-	{
-		try {
-			String email=principal.getName();
-			Set<String> favoriteGenres=userService.getFavoriteGenres(email);
-			return ResponseEntity.ok(favoriteGenres);
-		}
-		catch(Exception e){
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Collections.emptySet());
-		}
-	}
-	
-	@GetMapping()
-	public ResponseEntity<List<Book>> getAllBooks()
-	{
-		List<Book> books = List.of(
-			    new Book(1L, "The Alchemist", "Paulo Coelho", "Fiction", "A novel about a young shepherd's journey to find treasure.", 4.7, "https://example.com/alchemist.jpg"),
-			    new Book(2L, "1984", "George Orwell", "Dystopian", "A novel about a totalitarian regime that uses surveillance to control its citizens.", 4.8, "https://example.com/1984.jpg"),
-			    new Book(3L, "To Kill a Mockingbird", "Harper Lee", "Classic", "A novel about racial injustice in the Deep South.", 4.9, "https://example.com/mockingbird.jpg")
-			);
+//	@GetMapping("/fav_genere")
+//	public ResponseEntity<Set<String>> getFavoriteGenres(Principal principal)
+//	{
+//		try {
+//			String email=principal.getName();
+//			System.out.println("bbbbbbbbbbbbbboooookkkkkkkkksssssssss");
+//			System.out.println(email);
+//			Set<String> favoriteGenres=userService.getFavoriteGenres(email);
+//			return ResponseEntity.ok(favoriteGenres);
+//		}
+//		catch(Exception e){
+//			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                    .body(Collections.emptySet());
+//		}
+//	}
+    
+    
+    @GetMapping("/fav_genere")
+    public ResponseEntity<Set<String>> getFavoriteGenres(Principal principal) {
+        try {
+            if (principal == null || principal.getName() == null) {
+                System.err.println("Principal is null or does not contain a name");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
 
-		System.out.println("Books List: " + books); 
-		return ResponseEntity.ok(books);
-	}
+            String email = principal.getName();
+            System.out.println("Fetching favorite genres for email: " + email);
+            
+            Set<String> favoriteGenres = userService.getFavoriteGenres(email);
+            return ResponseEntity.ok(favoriteGenres);
+        } catch (Exception e) {
+            System.err.println("Error occurred while fetching favorite genres");
+            e.printStackTrace(); // Log stack trace
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                 .body(Collections.emptySet());
+        }
+    }
+
+	
+//	@GetMapping()
+//	public ResponseEntity<List<Book>> getAllBooks()
+//	{
+//		List<Book> books = List.of(
+//			    new Book(1L, "The Alchemist", "Paulo Coelho", "Fiction", "A novel about a young shepherd's journey to find treasure.", 4.7, "https://example.com/alchemist.jpg"),
+//			    new Book(2L, "1984", "George Orwell", "Dystopian", "A novel about a totalitarian regime that uses surveillance to control its citizens.", 4.8, "https://example.com/1984.jpg"),
+//			    new Book(3L, "To Kill a Mockingbird", "Harper Lee", "Classic", "A novel about racial injustice in the Deep South.", 4.9, "https://example.com/mockingbird.jpg")
+//			);
+//
+//		System.out.println("Books List: " + books); 
+//		return ResponseEntity.ok(books);
+//	}
 	
 }

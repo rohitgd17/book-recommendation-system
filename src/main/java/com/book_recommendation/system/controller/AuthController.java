@@ -63,10 +63,12 @@ public class AuthController {
 		   User user=userOptinal.get();
 		   if(passwordEncoder.matches(loginRequest.getPassword(),user.getPassword())) {
 			   String token=jwtService.generateToken(user.getEmail());
-			   
+			   System.out.println("ddddddddddddddddddddddd");
+			   String name=user.getName();
+			   System.out.println(name);
 			   return ResponseEntity.ok(Map.of(
 					   "token",token,
-					   "username",user.getName()));
+					   "userName",name));
 		   }
 	   }
 	   

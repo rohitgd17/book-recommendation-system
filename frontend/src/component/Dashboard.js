@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "./Navbar";
+
 const Dashboard = () => {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -8,21 +9,32 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [userName, setUserName] = useState("");
   const [filterOption, setFilterOption] = useState(""); // For sorting
+  const [hoveredCard, setHoveredCard] = useState(null);
+  const [suggestedGenres, setSuggestedGenres] = useState([]); // New state for genre suggestions
+  const [genreDropdownVisible, setGenreDropdownVisible] = useState(false); // State to toggle dropdown visibility
+  const [selectedGenre, setSelectedGenre] = useState(""); // State for selected genre
+
   const navigate = useNavigate();
- const [hoveredCard, setHoveredCard] = useState(null);
- 	
- 
- /* Fetch favorite genres dynamically*/
+  
+  /* Fetch favorite genres dynamically*/
   const fetchFavoriteGenres = async () => {
     try {
-      const token = sessionStorage.getItem("token");
-      const response = await fetch("http://localhost:8089/api/user/favorite-genres", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("You need to login first!");
+        navigate("/login");
+        return;
+      }
+      const response = await fetch(
+        "http://localhost:8089/api/books/fav_genere",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch favorite genres");
@@ -37,15 +49,11 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-	  
-	  
-	  
-	  
     const fetchBooks = async () => {
       try {
         const token = localStorage.getItem("token");
-        const userNameFromStorage = sessionStorage.getItem("userName");
-        setUserName(userNameFromStorage || "User");
+        const userNameFromStorage = localStorage.getItem("userName");
+        setUserName(userNameFromStorage);
 
         if (!token) {
           alert("You need to login first!");
@@ -53,12 +61,11 @@ const Dashboard = () => {
           return;
         }
 
-        /*const favoriteGenres = ["comedy", "love"];*/
         const favoriteGenres = await fetchFavoriteGenres();
         const booksByGenre = [];
         for (const genre of favoriteGenres.slice(0, 3)) {
           const response = await fetch(
-            `http://localhost:8089/api/books/fetch?genre=${genre}&apiKey=AIzaSyBYpWTgMHSJNm0YGf8VuBwmn_ROV1jfpjM`,
+            `http://localhost:8089/api/books/fetch?genre=${genre}&apiKey=AIzaSyBYpWTgMHSJNm0YGf8VuBwmn_ROV1jfpjM&orderBy=relevance`,
             {
               method: "GET",
               headers: {
@@ -85,11 +92,9 @@ const Dashboard = () => {
     fetchBooks();
   }, [navigate]);
 
-	const fetchGoogleBooks = async (query) => {
+  const fetchGoogleBooks = async (query) => {
     try {
-		
       const response = await fetch(
-		  
         `https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=20&key=AIzaSyBYpWTgMHSJNm0YGf8VuBwmn_ROV1jfpjM`
       );
 
@@ -104,20 +109,46 @@ const Dashboard = () => {
     }
   };
 
-  const handleSearch = (e) => {
-    setSearchQuery(e.target.value);
+  const handleSearch = async (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (query.length > 0) {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `http://localhost:8089/api/genres/search?query=${query}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const genres = await response.json();
+        setSuggestedGenres(genres); // Update suggestions dynamically
+      }
+    } else {
+      setSuggestedGenres([]); // Clear suggestions if input is empty
+    }
   };
+
+  const handleGenreClick = async (genre) => {
+    setSearchQuery(genre); // Update the search bar with the selected genre
+    setSuggestedGenres([]); // Clear suggestions after selection
+    await fetchGoogleBooks(genre); // Fetch books based on the genre
+  };
+
   const handleCardClick = (bookId) => {
-	const token = localStorage.getItem("token");
-	console.log("aaaabbbbbbbbbbbbbbbbbbaaaaaaaaaaaa")
-    console.log(sessionStorage)
+    const token = localStorage.getItem("token");
+    console.log(sessionStorage);
     for (let i = 0; i < sessionStorage.length; i++) {
-		console.log("ccccccccccccccccccccccccccc")
-	  const key = sessionStorage.key(i); // Get each key
-	  const value = sessionStorage.getItem(key); // Get the value for the key
-	  console.log(`${key}: ${value}`);
-}
-	console.log("ddddddddddddddddddd")
+      const key = sessionStorage.key(i); // Get each key
+      const value = sessionStorage.getItem(key); // Get the value for the key
+      console.log(`${key}: ${value}`);
+    }
     navigate(`/book/${bookId}`);
   };
 
@@ -140,8 +171,7 @@ const Dashboard = () => {
       case "rating":
         return [...books].sort(
           (a, b) =>
-            (b.volumeInfo.averageRating || 0) -
-            (a.volumeInfo.averageRating || 0)
+            (b.volumeInfo.averageRating || 0) - (a.volumeInfo.averageRating || 0)
         );
       default:
         return books;
@@ -159,84 +189,119 @@ const Dashboard = () => {
       );
     })
   );
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     fetchGoogleBooks(searchQuery);
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-  if (books.length === 0) return <div>No books found for your favorite genres.</div>;
+  const handleSelectGenreClick = () => {
+    setGenreDropdownVisible(!genreDropdownVisible);
+  };
+
+  const handleDropdownChange = (genre) => {
+    setSelectedGenre(genre);
+    setSearchQuery(genre); // Update the search bar with the selected genre
+    setGenreDropdownVisible(false); // Hide the dropdown after selection
+    fetchGoogleBooks(genre); // Fetch books based on the selected genre
+  };
 
   return (
-  <div>
-    <Navbar/>
-    <div style={styles.container}>
-    
-      <aside style={styles.sidebar}>
-        <h2>Welcome, {userName}</h2>
-      </aside>
-      <main style={styles.main}>
-        <header style={styles.header}>
-          <h1>Recommended Books</h1>
-          <form onSubmit={handleSearchSubmit} style={styles.searchForm}>
-            <input
-              type="text"
-              placeholder="Search books by title or author..."
-              value={searchQuery}
-              onChange={handleSearch}
-              style={styles.searchBar}
-            />
-            <button type="submit" style={styles.searchButton}>Search</button>
-            <select
-              onChange={handleFilterChange}
-              value={filterOption}
-              style={styles.filterDropdown}
-            >
-              <option value="">Sort By</option>
-              <option value="title">Title (A-Z)</option>
-              <option value="year">Year</option>
-              <option value="rating">Rating</option>
-            </select>
-          </form>
-        </header>
-        <div style={styles.grid}>
-          {filteredBooks.map((book) => {
-    const { id, volumeInfo } = book;
-    console.log("Book ID:", id); // This should log the actual ID from Google Books API
-
-    const { title, authors, publishedDate, imageLinks } = volumeInfo || {};
-
-    return (
-      <div
-        key={id} // Use the unique 'id' here
-        style={{
-          ...styles.card,
-          ...(hoveredCard === id ? styles.cardHover : {}),
-        }}
-        onMouseEnter={() => setHoveredCard(id)}
-        onMouseLeave={() => setHoveredCard(null)}
-        onClick={() => handleCardClick(id)}
+    <div>
+      <Navbar />
+      <div style={styles.container}>
+        <aside style={styles.sidebar}>
+          <h2>Welcome, {userName}</h2>
+          <button onClick={handleSelectGenreClick} style={styles.selectGenreButton}>
+            Select Genre
+          </button>
+          {genreDropdownVisible && (
+            <div style={styles.genreDropdown}>
+              <button onClick={() => handleDropdownChange("Science Fiction")}>Science Fiction</button>
+              <button onClick={() => handleDropdownChange("Fantasy")}>Fantasy</button>
+              <button onClick={() => handleDropdownChange("Mystery")}>Mystery</button>
+              <button onClick={() => handleDropdownChange("Romance")}>Romance</button>
+              <button onClick={() => handleDropdownChange("Non-Fiction")}>Non-Fiction</button>
+            </div>
+          )}
+        </aside>
+        <main style={styles.main}>
+          <header style={styles.header}>
+            <h1>Recommended Books</h1>
+            <form onSubmit={handleSearchSubmit} style={styles.searchForm}>
+              <input
+                type="text"
+                placeholder="Search books by title, author, or genre..."
+                value={searchQuery}
+                onChange={handleSearch}
+                style={styles.searchBar}
+              />
+              <button type="submit" style={styles.searchButton}>
+                Search
+              </button>
+              <select
+                onChange={handleFilterChange}
+                value={filterOption}
+                style={styles.filterDropdown}
               >
-                < img
-          src={imageLinks?.thumbnail || "https://via.placeholder.com/150"}
-          alt={title || "No Cover Available"}
-          style={styles.coverImage}
-        />
-                <h3 style={styles.title}>{title || "Untitled"}</h3>
-        <p style={styles.author}>{authors?.join(", ") || "Unknown Author"}</p>
-        <p style={styles.published}>
-          Published: {publishedDate || "Unknown Date"}
-        </p>
-              </div>
-            );
-          })}
-        </div>
-      </main>
+                <option value="">Sort By</option>
+                <option value="title">Title (A-Z)</option>
+                <option value="year">Year</option>
+                <option value="rating">Rating</option>
+              </select>
+            </form>
+            <div style={styles.suggestions}>
+              {searchQuery && suggestedGenres.map((genre) => (
+                <button
+                  key={genre}
+                  onClick={() => handleGenreClick(genre)}
+                  style={styles.genreButton}
+                >
+                  {genre}
+                </button>
+              ))}
+            </div>
+          </header>
+          <div style={styles.grid}>
+            {filteredBooks.map((book) => {
+              const { id, volumeInfo } = book;
+              const { title, authors, publishedDate, imageLinks } =
+                volumeInfo || {};
+
+              return (
+                <div
+                  key={id}
+                  style={{
+                    ...styles.card,
+                    ...(hoveredCard === id ? styles.cardHover : {}),
+                  }}
+                  onMouseEnter={() => setHoveredCard(id)}
+                  onMouseLeave={() => setHoveredCard(null)}
+                  onClick={() => handleCardClick(id)}
+                >
+                  <img
+                    src={imageLinks?.thumbnail || "https://via.placeholder.com/150"}
+                    alt={title || "No Cover Available"}
+                    style={styles.coverImage}
+                  />
+                  <h3 style={styles.title}>{title || "Untitled"}</h3>
+                  <p style={styles.author}>
+                    {authors?.join(", ") || "Unknown Author"}
+                  </p>
+                  <p style={styles.published}>
+                    Published: {publishedDate || "Unknown Date"}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </main>
+      </div>
     </div>
-   </div>
   );
 };
+
+export default Dashboard;
 
 const styles = {
   container: { display: "flex", fontFamily: "Arial, sans-serif" ,marginTop:"60px"},
@@ -300,4 +365,4 @@ const styles = {
   },
 };
 
-export default Dashboard;
+
